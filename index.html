@@ -269,6 +269,7 @@
         .status-average { background: #ffc107; color: #333; }
         .status-needs-improvement { background: #fd7e14; color: white; }
         .status-struggling { background: #dc3545; color: white; }
+        .status-not-applicable { background: #6c757d; color: white; }
 
         .remedy-section {
             margin-top: 15px;
@@ -396,6 +397,7 @@
                     <option value="average">Average</option>
                     <option value="needs-improvement">Needs Improvement</option>
                     <option value="struggling">Struggling</option>
+                    <option value="not-applicable">Not Applicable</option>
                 </select>
             </div>
             <div class="form-group">
@@ -427,6 +429,7 @@
                     <option value="average">Average</option>
                     <option value="needs-improvement">Needs Improvement</option>
                     <option value="struggling">Struggling</option>
+                    <option value="not-applicable">Not Applicable</option>
                 </select>
             </div>
             <div class="form-group">
@@ -458,6 +461,7 @@
                     <option value="average">Average</option>
                     <option value="needs-improvement">Needs Improvement</option>
                     <option value="struggling">Struggling</option>
+                    <option value="not-applicable">Not Applicable</option>
                 </select>
             </div>
             <div class="form-group">
@@ -489,6 +493,7 @@
                     <option value="average">Average</option>
                     <option value="needs-improvement">Needs Improvement</option>
                     <option value="struggling">Struggling</option>
+                    <option value="not-applicable">Not Applicable</option>
                 </select>
             </div>
             <div class="form-group">
@@ -648,7 +653,8 @@
                             <button class="delete-btn" onclick="event.stopPropagation(); deleteSubject(${index})">×</button>
                             <h3>${subject.name}</h3>
                             <p class="card-info">${topicCount} topic${topicCount !== 1 ? 's' : ''}</p>
-                            <button class="btn btn-info" style="margin-top: 10px; width: 100%;" onclick="event.stopPropagation(); saveSubjectAsTemplate(${index})">💾 Save as Template</button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 13px; margin: 5px; width: calc(50% - 10px);" onclick="event.stopPropagation(); editSubjectName(${index})">✏️ Edit Name</button>
+                            <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px; margin: 5px; width: calc(50% - 10px);" onclick="event.stopPropagation(); saveSubjectAsTemplate(${index})">💾 Save Template</button>
                         </div>
                     `;
                 });
@@ -1061,21 +1067,68 @@
             const template = data.templates[parseInt(templateIndex)];
             const student = data.students.find(s => s.name === currentStudent);
             
-            // Deep clone the template
-            const newSubject = JSON.parse(JSON.stringify(template));
-            
             // Check if subject with same name exists
-            const existingSubject = student.subjects.find(s => s.name === newSubject.name);
-            if (existingSubject) {
-                alert(`Subject "${newSubject.name}" already exists for this student!`);
-                return;
-            }
+            let existingSubject = student.subjects.find(s => s.name === template.name);
             
-            if (!student.subjects) student.subjects = [];
-            student.subjects.push(newSubject);
-            saveData();
-            closeModal('importSubjectModal');
-            renderSubjects();
+            if (existingSubject) {
+                // MERGE: Add topics that don't exist in the current subject
+                const templateCopy = JSON.parse(JSON.stringify(template));
+                let addedTopics = 0;
+                
+                if (!existingSubject.topics) existingSubject.topics = [];
+                
+                templateCopy.topics.forEach(templateTopic => {
+                    const topicExists = existingSubject.topics.find(t => t.name === templateTopic.name);
+                    if (!topicExists) {
+                        existingSubject.topics.push(templateTopic);
+                        addedTopics++;
+                    } else {
+                        // Topic exists, now merge subtopics
+                        if (templateTopic.subtopics && templateTopic.subtopics.length > 0) {
+                            if (!topicExists.subtopics) topicExists.subtopics = [];
+                            templateTopic.subtopics.forEach(templateSubtopic => {
+                                const subtopicExists = topicExists.subtopics.find(st => st.name === templateSubtopic.name);
+                                if (!subtopicExists) {
+                                    topicExists.subtopics.push(templateSubtopic);
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                saveData();
+                closeModal('importSubjectModal');
+                renderSubjects();
+                alert(`Merged successfully! Added ${addedTopics} new topic(s) to existing "${template.name}" subject.`);
+            } else {
+                // Subject doesn't exist, add it completely
+                const newSubject = JSON.parse(JSON.stringify(template));
+                if (!student.subjects) student.subjects = [];
+                student.subjects.push(newSubject);
+                saveData();
+                closeModal('importSubjectModal');
+                renderSubjects();
+                alert(`Subject "${template.name}" imported successfully!`);
+            }
+        }
+
+        function editSubjectName(index) {
+            const student = data.students.find(s => s.name === currentStudent);
+            const subject = student.subjects[index];
+            const newName = prompt('Enter new subject name:', subject.name);
+            
+            if (newName && newName.trim() !== '' && newName !== subject.name) {
+                const trimmedName = newName.trim();
+                // Check if another subject with this name exists
+                const exists = student.subjects.find((s, i) => s.name === trimmedName && i !== index);
+                if (exists) {
+                    alert('A subject with this name already exists!');
+                    return;
+                }
+                subject.name = trimmedName;
+                saveData();
+                renderSubjects();
+            }
         }
 
         function deleteTemplate(index) {
@@ -1325,30 +1378,44 @@
                         return;
                     }
                     
-                    // Ask user how to handle duplicates
-                    const action = confirm(
-                        `Found ${importedData.templates.length} template(s) to import.\n\n` +
-                        'Click OK to MERGE with existing templates.\n' +
-                        'Click Cancel to REPLACE all existing templates.'
-                    );
+                    // Always MERGE templates
+                    if (!data.templates) data.templates = [];
+                    let addedCount = 0;
+                    let mergedCount = 0;
                     
-                    if (action) {
-                        // Merge: Add only templates that don't exist
-                        if (!data.templates) data.templates = [];
-                        let addedCount = 0;
-                        importedData.templates.forEach(newTemplate => {
-                            const exists = data.templates.find(t => t.name === newTemplate.name);
-                            if (!exists) {
-                                data.templates.push(newTemplate);
-                                addedCount++;
-                            }
-                        });
-                        alert(`Merged successfully! Added ${addedCount} new template(s).`);
-                    } else {
-                        // Replace all
-                        data.templates = importedData.templates;
-                        alert('Templates replaced successfully!');
-                    }
+                    importedData.templates.forEach(newTemplate => {
+                        const existingIndex = data.templates.findIndex(t => t.name === newTemplate.name);
+                        if (existingIndex === -1) {
+                            // Template doesn't exist, add it
+                            data.templates.push(newTemplate);
+                            addedCount++;
+                        } else {
+                            // Template exists, merge topics and subtopics
+                            const existing = data.templates[existingIndex];
+                            if (!existing.topics) existing.topics = [];
+                            
+                            newTemplate.topics.forEach(newTopic => {
+                                const topicExists = existing.topics.find(t => t.name === newTopic.name);
+                                if (!topicExists) {
+                                    existing.topics.push(newTopic);
+                                } else {
+                                    // Merge subtopics
+                                    if (newTopic.subtopics && newTopic.subtopics.length > 0) {
+                                        if (!topicExists.subtopics) topicExists.subtopics = [];
+                                        newTopic.subtopics.forEach(newSubtopic => {
+                                            const subtopicExists = topicExists.subtopics.find(st => st.name === newSubtopic.name);
+                                            if (!subtopicExists) {
+                                                topicExists.subtopics.push(newSubtopic);
+                                            }
+                                        });
+                                    }
+                                }
+                            });
+                            mergedCount++;
+                        }
+                    });
+                    
+                    alert(`Import complete!\n✓ Added ${addedCount} new template(s)\n✓ Merged with ${mergedCount} existing template(s)\nAll your current data is preserved!`);
                     
                     saveData();
                     if (currentView === 'templates') {
