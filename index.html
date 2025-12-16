@@ -524,6 +524,30 @@
         </div>
     </div>
 
+    <!-- Edit Student Overview Modal -->
+    <div class="modal" id="editStudentOverviewModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <h2>Edit Student Overview</h2>
+            <p style="color: #6c757d; margin-bottom: 20px;">Add quick information and updates about this student</p>
+            <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Quick Info (Thin Column)</label>
+                    <textarea id="overviewColumn1" placeholder="E.g., Grade level, age, contact info..." style="min-height: 200px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Detailed Notes (Fat Column)</label>
+                    <textarea id="overviewColumn2" placeholder="E.g., Learning style, strengths, challenges, goals, parent feedback..." style="min-height: 200px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Quick Updates (Thin Column)</label>
+                    <textarea id="overviewColumn3" placeholder="E.g., Recent progress, attendance, behavioral notes..." style="min-height: 200px;"></textarea>
+                </div>
+            </div>
+            <button class="btn" onclick="saveStudentOverview()">Save Overview</button>
+            <button class="btn btn-secondary" onclick="closeModal('editStudentOverviewModal')">Cancel</button>
+        </div>
+    </div>
+
     <script>
         let data = {
             students: [],
@@ -635,7 +659,31 @@
                 <button class="btn" onclick="openModal('addSubjectModal')">+ Add New Subject</button>
                 <button class="btn btn-info" onclick="openModal('importSubjectModal')">📥 Import Subject Template</button>
                 <button class="btn btn-success" onclick="exportStudentToPDF()">📄 Export to PDF</button>
+                <button class="btn" onclick="openModal('editStudentOverviewModal')" style="background: #6f42c1;">📝 Edit Student Overview</button>
             `;
+
+            // Student Overview Section
+            if (student.overview) {
+                html += `
+                    <div style="margin: 30px 0; padding: 25px; background: white; border-radius: 12px; border: 2px solid #e9ecef;">
+                        <h2 style="color: #333; margin-bottom: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Student Overview</h2>
+                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px;">
+                            <div>
+                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Quick Info</h3>
+                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column1 || 'No information added yet.'}</div>
+                            </div>
+                            <div style="border-left: 2px solid #e9ecef; border-right: 2px solid #e9ecef; padding: 0 20px;">
+                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Detailed Notes</h3>
+                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column2 || 'No notes added yet.'}</div>
+                            </div>
+                            <div>
+                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Quick Updates</h3>
+                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column3 || 'No updates added yet.'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             
             if (!student.subjects || student.subjects.length === 0) {
                 html += `
@@ -851,6 +899,15 @@
                     });
                 }
             }
+            
+            // Populate student overview if opening that modal
+            if (modalId === 'editStudentOverviewModal') {
+                const student = data.students.find(s => s.name === currentStudent);
+                document.getElementById('overviewColumn1').value = student.overview?.column1 || '';
+                document.getElementById('overviewColumn2').value = student.overview?.column2 || '';
+                document.getElementById('overviewColumn3').value = student.overview?.column3 || '';
+            }
+            
             document.getElementById(modalId).classList.add('active');
         }
 
@@ -1129,6 +1186,19 @@
                 saveData();
                 renderSubjects();
             }
+        }
+
+        function saveStudentOverview() {
+            const student = data.students.find(s => s.name === currentStudent);
+            if (!student.overview) student.overview = {};
+            
+            student.overview.column1 = document.getElementById('overviewColumn1').value.trim();
+            student.overview.column2 = document.getElementById('overviewColumn2').value.trim();
+            student.overview.column3 = document.getElementById('overviewColumn3').value.trim();
+            
+            saveData();
+            closeModal('editStudentOverviewModal');
+            renderSubjects();
         }
 
         function deleteTemplate(index) {
