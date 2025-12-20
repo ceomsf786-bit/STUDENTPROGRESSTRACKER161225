@@ -528,19 +528,21 @@
     <div class="modal" id="editStudentOverviewModal">
         <div class="modal-content" style="max-width: 900px;">
             <h2>Edit Student Overview</h2>
-            <p style="color: #6c757d; margin-bottom: 20px;">Add quick information and updates about this student</p>
+            <p style="color: #6c757d; margin-bottom: 10px;">Track student information chronologically</p>
+            <p style="color: #667eea; margin-bottom: 20px; font-weight: 600;">💡 Tip: Each line number creates ONE ROW across all 3 columns (like a date entry)</p>
+            <p style="color: #28a745; margin-bottom: 20px; font-size: 14px;">Example: Line 1 in all columns = Dec 15 entry | Line 2 in all columns = Dec 16 entry</p>
             <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px;">
                 <div class="form-group">
                     <label>Quick Info (Thin Column)</label>
-                    <textarea id="overviewColumn1" placeholder="E.g., Grade level, age, contact info..." style="min-height: 200px;"></textarea>
+                    <textarea id="overviewColumn1" placeholder="Dec 15, 2024&#10;Dec 16, 2024&#10;Dec 17, 2024" style="min-height: 200px;"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Detailed Notes (Fat Column)</label>
-                    <textarea id="overviewColumn2" placeholder="E.g., Learning style, strengths, challenges, goals, parent feedback..." style="min-height: 200px;"></textarea>
+                    <textarea id="overviewColumn2" placeholder="Completed algebra test with 85%&#10;Participated actively in group discussion&#10;Submitted excellent essay on Shakespeare" style="min-height: 200px;"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Quick Updates (Thin Column)</label>
-                    <textarea id="overviewColumn3" placeholder="E.g., Recent progress, attendance, behavioral notes..." style="min-height: 200px;"></textarea>
+                    <textarea id="overviewColumn3" placeholder="Great improvement!&#10;Keep it up&#10;Outstanding work" style="min-height: 200px;"></textarea>
                 </div>
             </div>
             <button class="btn" onclick="saveStudentOverview()">Save Overview</button>
@@ -663,24 +665,22 @@
             `;
 
             // Student Overview Section
-            if (student.overview) {
+            if (student.overview && student.overview.entries && student.overview.entries.length > 0) {
                 html += `
                     <div style="margin: 30px 0; padding: 25px; background: white; border-radius: 12px; border: 2px solid #e9ecef;">
                         <h2 style="color: #333; margin-bottom: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Student Overview</h2>
-                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px;">
-                            <div>
-                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Quick Info</h3>
-                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column1 || 'No information added yet.'}</div>
-                            </div>
-                            <div style="border-left: 2px solid #e9ecef; border-right: 2px solid #e9ecef; padding: 0 20px;">
-                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Detailed Notes</h3>
-                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column2 || 'No notes added yet.'}</div>
-                            </div>
-                            <div>
-                                <h3 style="color: #667eea; font-size: 1.1em; margin-bottom: 10px;">Quick Updates</h3>
-                                <div style="color: #333; white-space: pre-wrap;">${student.overview.column3 || 'No updates added yet.'}</div>
-                            </div>
+                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 10px; font-weight: 600; color: #667eea;">
+                            <div>Quick Info</div>
+                            <div style="border-left: 2px solid #e9ecef; border-right: 2px solid #e9ecef; padding: 0 20px;">Detailed Notes</div>
+                            <div>Quick Updates</div>
                         </div>
+                        ${student.overview.entries.map(entry => `
+                            <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; padding: 12px 0; border-bottom: 1px solid #e9ecef;">
+                                <div style="color: #333;">${entry.col1 || ''}</div>
+                                <div style="color: #333; border-left: 2px solid #e9ecef; border-right: 2px solid #e9ecef; padding: 0 20px;">${entry.col2 || ''}</div>
+                                <div style="color: #333;">${entry.col3 || ''}</div>
+                            </div>
+                        `).join('')}
                     </div>
                 `;
             }
@@ -903,9 +903,27 @@
             // Populate student overview if opening that modal
             if (modalId === 'editStudentOverviewModal') {
                 const student = data.students.find(s => s.name === currentStudent);
-                document.getElementById('overviewColumn1').value = student.overview?.column1 || '';
-                document.getElementById('overviewColumn2').value = student.overview?.column2 || '';
-                document.getElementById('overviewColumn3').value = student.overview?.column3 || '';
+                
+                if (student.overview?.entries) {
+                    // Convert entries back to column text
+                    const col1Lines = [];
+                    const col2Lines = [];
+                    const col3Lines = [];
+                    
+                    student.overview.entries.forEach(entry => {
+                        col1Lines.push(entry.col1 || '');
+                        col2Lines.push(entry.col2 || '');
+                        col3Lines.push(entry.col3 || '');
+                    });
+                    
+                    document.getElementById('overviewColumn1').value = col1Lines.join('\n');
+                    document.getElementById('overviewColumn2').value = col2Lines.join('\n');
+                    document.getElementById('overviewColumn3').value = col3Lines.join('\n');
+                } else {
+                    document.getElementById('overviewColumn1').value = '';
+                    document.getElementById('overviewColumn2').value = '';
+                    document.getElementById('overviewColumn3').value = '';
+                }
             }
             
             document.getElementById(modalId).classList.add('active');
@@ -1192,9 +1210,26 @@
             const student = data.students.find(s => s.name === currentStudent);
             if (!student.overview) student.overview = {};
             
-            student.overview.column1 = document.getElementById('overviewColumn1').value.trim();
-            student.overview.column2 = document.getElementById('overviewColumn2').value.trim();
-            student.overview.column3 = document.getElementById('overviewColumn3').value.trim();
+            // Get the number of rows based on the column with most lines
+            const col1Lines = document.getElementById('overviewColumn1').value.split('\n');
+            const col2Lines = document.getElementById('overviewColumn2').value.split('\n');
+            const col3Lines = document.getElementById('overviewColumn3').value.split('\n');
+            
+            const maxRows = Math.max(col1Lines.length, col2Lines.length, col3Lines.length);
+            
+            // Create entries array where each entry represents one row across all 3 columns
+            student.overview.entries = [];
+            for (let i = 0; i < maxRows; i++) {
+                const entry = {
+                    col1: col1Lines[i]?.trim() || '',
+                    col2: col2Lines[i]?.trim() || '',
+                    col3: col3Lines[i]?.trim() || ''
+                };
+                // Only add if at least one column has content
+                if (entry.col1 || entry.col2 || entry.col3) {
+                    student.overview.entries.push(entry);
+                }
+            }
             
             saveData();
             closeModal('editStudentOverviewModal');
@@ -1230,6 +1265,85 @@
             doc.setFont(undefined, 'normal');
             doc.text(`Generated: ${new Date().toLocaleDateString()}`, 15, yPos);
             yPos += 15;
+
+            // Student Overview Section
+            if (student.overview && student.overview.entries && student.overview.entries.length > 0) {
+                if (yPos > pageHeight - 30) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(102, 126, 234);
+                doc.text('Student Overview', 15, yPos);
+                doc.setTextColor(0, 0, 0);
+                yPos += 10;
+
+                doc.setFontSize(9);
+                
+                // Column headers
+                doc.setFont(undefined, 'bold');
+                doc.text('Quick Info', 15, yPos);
+                doc.text('Detailed Notes', 65, yPos);
+                doc.text('Quick Updates', 155, yPos);
+                yPos += 7;
+                
+                // Draw line under headers
+                doc.setDrawColor(102, 126, 234);
+                doc.setLineWidth(0.5);
+                doc.line(15, yPos - 2, 195, yPos - 2);
+                yPos += 2;
+                
+                doc.setFont(undefined, 'normal');
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.2);
+                
+                // Each entry is one row across all columns
+                student.overview.entries.forEach((entry, index) => {
+                    if (yPos > pageHeight - 15) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const startY = yPos;
+                    let maxHeight = 0;
+                    
+                    // Column 1 (thin)
+                    if (entry.col1) {
+                        const lines1 = doc.splitTextToSize(entry.col1, 45);
+                        lines1.forEach((line, i) => {
+                            doc.text(line, 15, yPos + (i * lineHeight));
+                        });
+                        maxHeight = Math.max(maxHeight, lines1.length * lineHeight);
+                    }
+                    
+                    // Column 2 (fat)
+                    if (entry.col2) {
+                        const lines2 = doc.splitTextToSize(entry.col2, 85);
+                        lines2.forEach((line, i) => {
+                            doc.text(line, 65, startY + (i * lineHeight));
+                        });
+                        maxHeight = Math.max(maxHeight, lines2.length * lineHeight);
+                    }
+                    
+                    // Column 3 (thin)
+                    if (entry.col3) {
+                        const lines3 = doc.splitTextToSize(entry.col3, 40);
+                        lines3.forEach((line, i) => {
+                            doc.text(line, 155, startY + (i * lineHeight));
+                        });
+                        maxHeight = Math.max(maxHeight, lines3.length * lineHeight);
+                    }
+                    
+                    yPos += maxHeight + 3;
+                    
+                    // Draw line under row
+                    doc.line(15, yPos - 1, 195, yPos - 1);
+                });
+
+                yPos += 10;
+            }
             
             // Loop through subjects
             if (student.subjects && student.subjects.length > 0) {
